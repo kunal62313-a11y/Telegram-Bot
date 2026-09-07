@@ -3,6 +3,8 @@ import asyncio
 import io
 import logging
 import urllib.parse
+import os
+from aiohttp import web
 from collections import defaultdict
 
 import aiosqlite
@@ -1079,20 +1081,36 @@ async def handle_admin_pay_approval(callback: types.CallbackQuery):
                     caption=callback.message.caption + "\n\nSTATUS: REJECTED"
                 )
         await callback.answer("Status updated.")
+# -------------------------------------------------------------
+# DUMMY WEB SERVER FOR RENDER KEEP-ALIVE
+# -------------------------------------------------------------
+async def handle_ping(request):
+    return web.Response(text="Bot is running!")
 
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    app.router.add_get("/health", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
 
-# ==========================================
+# -------------------------------------------------------------
 # LAUNCH BOT
-# ==========================================
+# -------------------------------------------------------------
 async def main():
     await init_db()
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as e:
         logging.warning(f"Could not drop webhook: {e}")
+    
+    await start_web_server()
     print("Bot is up and running...")
     await dp.start_polling(bot)
 
-
 if __name__ == "__main__":
     asyncio.run(main())
+    
